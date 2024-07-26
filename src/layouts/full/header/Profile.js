@@ -17,15 +17,26 @@ import ProfileImg from 'src/assets/images/profile/user-1.jpg'; // Default profil
  
 const Profile = () => {
   const [anchorEl2, setAnchorEl2] = useState(null);
-  const [userRole, setUserRole] = useState(localStorage.getItem("role"));
+  const [isAdmin , setIsAdmin] = useState(false);
   const [username, setUsername] = useState('');
   const [userImage, setUserImage] = useState(ProfileImg);
  
   useEffect(() => {
-    const storedRole = localStorage.getItem("role");
-    if (storedRole) {
-      setUserRole(storedRole);
-    }
+    const fetchUserRoles = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user && user.roles !== null) {
+          const userRoles = user.roles;
+          if (userRoles.includes("ROLE_ADMIN")) {
+            setIsAdmin(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user roles:', error.message);
+      }
+    };
+ 
+    fetchUserRoles();
   }, []);
  
   useEffect(() => {
@@ -117,7 +128,7 @@ const Profile = () => {
         }}
       >
         <div>
-          {userRole === "ROLE_ADMIN" ? (
+        {isAdmin  ? (
             <MenuItem component={Link} to="/modifierprofile">
               <ListItemIcon>
                 <IconUser width={20} />
@@ -133,22 +144,26 @@ const Profile = () => {
             </MenuItem>
           )}
         </div>
-        <MenuItem>
-          <ListItemIcon>
-            <IconMail width={20} />
-          </ListItemIcon>
-          <Link to="/client/Mesquestions" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <ListItemText>My Questions</ListItemText>
-          </Link>
-        </MenuItem>
-        <MenuItem>
-          <ListItemIcon>
-            <IconListCheck width={20} />
-          </ListItemIcon>
-          <Link to="/client/Mesanswers" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <ListItemText>My Answers</ListItemText>
-          </Link>
-        </MenuItem>
+        {!isAdmin  && (
+        <>
+          <MenuItem>
+            <ListItemIcon>
+              <IconMail width={20} />
+            </ListItemIcon>
+            <Link to="/client/Mesquestions" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <ListItemText>My Questions</ListItemText>
+            </Link>
+          </MenuItem>
+          <MenuItem>
+            <ListItemIcon>
+              <IconListCheck width={20} />
+            </ListItemIcon>
+            <Link to="/client/Mesanswers" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <ListItemText>My Answers</ListItemText>
+            </Link>
+          </MenuItem>
+        </>
+      )}
         <Box mt={1} py={1} px={2}>
           <Button to="/auth/login" variant="outlined" color="primary" component={Link} fullWidth onClick={cleanLocalStorage}>
             Logout

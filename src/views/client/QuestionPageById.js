@@ -359,6 +359,14 @@ function QuestionsPageById() {
 
 
   const handleAcceptAnswer = async (answerId) => {
+    const userId = localStorage.getItem('userId'); // Récupérer l'ID de l'utilisateur depuis le localStorage
+    const questionCreatorId = question.userId; // Assurez-vous d'avoir l'ID du créateur de la question
+ 
+    if (userId !== questionCreatorId) {
+      Swal.fire('Sorry', 'Only the user who created the question can mark an answer as accepted', 'error');
+      return;
+    }
+ 
     try {
       const response = await axios.put(
         `http://localhost:8082/api/questions/${answerId}/accept`,
@@ -369,7 +377,7 @@ function QuestionsPageById() {
           },
         }
       );
-
+ 
       if (response.status === 200) {
         Swal.fire('Answer marked as correct', '', 'success').then(() => {
           window.location.reload();
@@ -378,9 +386,7 @@ function QuestionsPageById() {
           prevAnswers.map((answer) =>
             answer.id === answerId ? { ...answer, accepted: true } : { ...answer, accepted: false }
           )
-          
         );
-        
       }
     } catch (error) {
       console.error('Error accepting answer:', error);

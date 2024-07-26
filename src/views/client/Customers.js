@@ -8,8 +8,9 @@ import { TextField, InputAdornment } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
- 
 const Chatbox = styled.div`
   position: fixed;
   bottom: 0;
@@ -34,7 +35,7 @@ const Chatbox = styled.div`
     }
   }
 `;
- 
+
 const ChatHeader = styled.div`
   background: grey;
   color: white;
@@ -45,14 +46,14 @@ const ChatHeader = styled.div`
   align-items: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 `;
- 
+
 const ChatBody = styled.div`
   flex: 1;
   padding: 15px;
   overflow-y: auto;
   background: #f9f9f9;
 `;
- 
+
 const ChatFooter = styled.div`
   padding: 10px;
   border-top: 1px solid #ddd;
@@ -61,7 +62,7 @@ const ChatFooter = styled.div`
   align-items: center;
   gap: 10px;
 `;
- 
+
 const MessageInput = styled.input`
   width: 100%;
   padding: 12px;
@@ -70,7 +71,7 @@ const MessageInput = styled.input`
   outline: none;
   box-sizing: border-box;
 `;
- 
+
 const CloseButton = styled.button`
   background: none;
   border: none;
@@ -79,12 +80,12 @@ const CloseButton = styled.button`
   color: white;
   font-size: 1.2rem;
   cursor: pointer;
- 
+
   &:hover {
     opacity: 0.8;
   }
 `;
- 
+
 const Customers = () => {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
@@ -98,7 +99,7 @@ const Customers = () => {
   const [messageInput, setMessageInput] = useState('');
   const [stompClient, setStompClient] = useState(null);
   const navigate = useNavigate();
- 
+
   useEffect(() => {
     axios
       .get('http://localhost:8082/api/users')
@@ -107,12 +108,9 @@ const Customers = () => {
         if (userDataString) {
           try {
             const userData = JSON.parse(userDataString);
- 
             const filteredUsers = response.data.filter(
               (user) => user.matricul !== parseInt(userData.id),
             );
-            console.log(filteredUsers);
- 
             setUsers(filteredUsers);
           } catch (error) {
             console.error('Erreur lors de la conversion des données utilisateur :', error);
@@ -125,23 +123,57 @@ const Customers = () => {
         console.error('Erreur lors du chargement des utilisateurs :', error);
       });
   }, []);
- 
+
+  useEffect(() => {
+    const socket = new SockJS('http://localhost:8082/ws');
+    const client = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      onConnect: () => {
+        console.log('Connected to WebSocket');
+        client.subscribe(`/user/queue/messages`, (message) => {
+          const newMessage = JSON.parse(message.body);
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+        });
+      },
+      onDisconnect: () => {
+        console.log('Disconnected from WebSocket');
+      },
+    });
+    client.activate();
+    setStompClient(client);
+
+    return () => {
+      if (client) client.deactivate();
+    };
+  }, []);
+
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
   };
- 
+
   const handleChatClick = (id, username) => {
     setCurrentChatUser(username);
     setCurrentChatUserId(id);
     setIsChatboxOpen(true);
+
+    // Fetch existing messages for this user
+    axios
+      .get(`http://localhost:8082/api/messages?senderId=${senderId}&receiverId=${id}`)
+      .then((response) => {
+        setMessages(response.data);
+      })
+      .catch((error) => {
+        console.error('Erreur lors de la récupération des messages :', error);
+      });
   };
- 
+
   const handleCloseChatbox = () => {
     setIsChatboxOpen(false);
     setCurrentChatUser(null);
     setCurrentChatUserId(null);
   };
- 
+
   const handleSendMessage = () => {
     if (messageInput.trim() !== '' && stompClient && currentChatUserId) {
       const message = {
@@ -149,21 +181,21 @@ const Customers = () => {
         senderId: senderId,
         receiverId: currentChatUserId,
       };
- 
+
       stompClient.publish({
         destination: `/app/chat`,
         body: JSON.stringify(message),
       });
- 
+
       setMessages((prevMessages) => [...prevMessages, { ...message, sender: 'You' }]);
       setMessageInput('');
     }
   };
- 
+
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(searchTerm.toLowerCase()),
   );
- 
+
   return (
     <>
       <NewNavbar />
@@ -258,5 +290,5 @@ const Customers = () => {
     </>
   );
 };
- 
+
 export default Customers;

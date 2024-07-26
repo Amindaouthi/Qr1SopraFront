@@ -159,6 +159,7 @@ const ChartComponent = () => {
           });
 
           setQuestions(questionsResponse.data);
+          console.log("question",questionsResponse);
           setAnswers(answersResponse.data);
           processQuestionChartData(questionsResponse.data);
           processAnswerChartData(answersResponse.data);
